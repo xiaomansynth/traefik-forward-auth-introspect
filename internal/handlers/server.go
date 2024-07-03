@@ -1,11 +1,13 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
 	neturl "net/url"
 	"strings"
+	"time"
 
 	"github.com/mesosphere/traefik-forward-auth/internal/api/storage/v1alpha1"
 	"github.com/mesosphere/traefik-forward-auth/internal/authentication"
@@ -106,11 +108,46 @@ func (s *Server) RootHandler(w http.ResponseWriter, r *http.Request) {
 		s.router.ServeHTTP(w, r)
 	} else {
 		// Redirect the client to the authHost.
-		url := r.URL
-		url.Scheme = r.Header.Get("X-Forwarded-Proto")
-		url.Host = s.config.AuthHost
-		logger.Debugf("redirect to %v", url.String())
-		http.Redirect(w, r, url.String(), 307)
+		authHeader := r.Header.Get("Authorization")
+		bearerToken := ""
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			bearerToken = strings.TrimPrefix(authHeader, "Bearer ")
+		}
+
+		if bearerToken == "" {
+			logger.Warn("No bearer token found in Authorization header")
+			http.Error(w, "Unauthorized: No bearer token provided", http.StatusUnauthorized)
+			return
+		}
+
+		// Create OAuth2 config
+		oauth2Config := &oauth2.Config{
+			ClientID:     s.config.ClientID,
+			ClientSecret: s.config.ClientSecret,
+			Endpoint:     s.config.OIDCProvider.Endpoint(),
+		}
+
+		// Create context with timeout
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		// Verify the token
+		tokenSource := oauth2Config.TokenSource(ctx, &oauth2.Token{
+			AccessToken: bearerToken,
+			TokenType:   "Bearer",
+		})
+
+		// Try to get a new token, which will verify the existing one
+		_, err := tokenSource.Token()
+		if err != nil {
+			logger.Errorf("Failed to verify bearer token: %v", err)
+			http.Error(w, "Unauthorized: Invalid bearer token", http.StatusUnauthorized)
+			w.WriteHeader(401)
+			return
+		}
+
+		logger.Info("Bearer token successfully verified")
+		w.WriteHeader(200)
 	}
 }
 
