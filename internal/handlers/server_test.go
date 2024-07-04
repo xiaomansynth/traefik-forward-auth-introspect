@@ -2,14 +2,15 @@ package handlers
 
 import (
 	"fmt"
-	"github.com/coreos/go-oidc"
-	"github.com/mesosphere/traefik-forward-auth/internal/api/storage/v1alpha1"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"testing"
 	"time"
+
+	"github.com/coreos/go-oidc"
+	"github.com/mesosphere/traefik-forward-auth/internal/api/storage/v1alpha1"
 
 	"github.com/gorilla/sessions"
 	"github.com/stretchr/testify/assert"

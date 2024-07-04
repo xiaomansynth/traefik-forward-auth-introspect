@@ -25,8 +25,9 @@ import (
 )
 
 const (
-	impersonateUserHeader  = "Impersonate-User"
-	impersonateGroupHeader = "Impersonate-Group"
+	impersonateUserHeader    = "Impersonate-User"
+	impersonateGroupHeader   = "Impersonate-Group"
+	validatedTokenTtlSeconds = 5 * 60
 )
 
 // Server implements the HTTP server handling forwardauth
@@ -37,15 +38,18 @@ type Server struct {
 	log           logrus.FieldLogger
 	config        *configuration.Config
 	authenticator *authentication.Authenticator
+	// token and its last validated time
+	validatedTokens map[string]time.Time
 }
 
 // NewServer creates a new forwardauth server
 func NewServer(userinfo v1alpha1.UserInfoInterface, clientset kubernetes.Interface, config *configuration.Config) *Server {
 	s := &Server{
-		log:           internallog.NewDefaultLogger(config.LogLevel, config.LogFormat),
-		config:        config,
-		userinfo:      userinfo,
-		authenticator: authentication.NewAuthenticator(config),
+		log:             internallog.NewDefaultLogger(config.LogLevel, config.LogFormat),
+		config:          config,
+		userinfo:        userinfo,
+		authenticator:   authentication.NewAuthenticator(config),
+		validatedTokens: make(map[string]time.Time),
 	}
 
 	s.buildRoutes()
@@ -116,39 +120,55 @@ func (s *Server) RootHandler(w http.ResponseWriter, r *http.Request) {
 
 		if bearerToken == "" {
 			logger.Warn("No bearer token found in Authorization header")
+			for header, values := range r.Header {
+				for _, value := range values {
+					logger.Debugf("Header: %s, Value: %s", header, value)
+				}
+			}
 			http.Error(w, "Unauthorized: No bearer token provided", http.StatusUnauthorized)
 			return
 		}
 
 		// Create OAuth2 config
-		oauth2Config := &oauth2.Config{
-			ClientID:     s.config.ClientID,
-			ClientSecret: s.config.ClientSecret,
-			Endpoint:     s.config.OIDCProvider.Endpoint(),
-		}
-
 		// Create context with timeout
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
 		// Verify the token
-		tokenSource := oauth2Config.TokenSource(ctx, &oauth2.Token{
-			AccessToken: bearerToken,
-			TokenType:   "Bearer",
-		})
-
 		// Try to get a new token, which will verify the existing one
-		_, err := tokenSource.Token()
-		if err != nil {
-			logger.Errorf("Failed to verify bearer token: %v", err)
-			http.Error(w, "Unauthorized: Invalid bearer token", http.StatusUnauthorized)
-			w.WriteHeader(401)
-			return
-		}
-
-		logger.Info("Bearer token successfully verified")
-		w.WriteHeader(200)
+		s.validateToken(bearerToken, logger, w)
 	}
+}
+
+func (s *Server) validateToken(bearerToken string, logger *logrus.Entry, w http.ResponseWriter) {
+	lastValidationTime, found := s.validatedTokens[bearerToken]
+	if found && time.Now().Before(lastValidationTime.Add(time.Second*validatedTokenTtlSeconds)) {
+		logger.Debugf("found validated token in cache for %s", bearerToken)
+		w.WriteHeader(200)
+		return
+	}
+	oauth2Config := &oauth2.Config{
+		ClientID:     s.config.ClientID,
+		ClientSecret: s.config.ClientSecret,
+		Endpoint:     s.config.OIDCProvider.Endpoint(),
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	tokenSource := oauth2Config.TokenSource(ctx, &oauth2.Token{
+		AccessToken: bearerToken,
+		TokenType:   "Bearer",
+	})
+
+	_, err := tokenSource.Token()
+	if err != nil {
+		logger.Errorf("Failed to verify bearer token: %v", err)
+		http.Error(w, "Unauthorized: Invalid bearer token", http.StatusUnauthorized)
+		w.WriteHeader(401)
+		return
+	}
+
+	logger.Infof("Bearer token successfully verified for %s", bearerToken)
+	s.validatedTokens[bearerToken] = time.Now()
+	w.WriteHeader(200)
 }
 
 // AllowHandler handles the request as implicite "allow", returining HTTP 200 response to the Traefik
