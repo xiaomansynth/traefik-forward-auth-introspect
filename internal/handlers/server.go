@@ -38,8 +38,6 @@ type Server struct {
 	log           logrus.FieldLogger
 	config        *configuration.Config
 	authenticator *authentication.Authenticator
-	// token and its last validated time
-	validatedTokens map[string]time.Time
 }
 
 // NewServer creates a new forwardauth server
@@ -49,7 +47,6 @@ func NewServer(userinfo v1alpha1.UserInfoInterface, clientset kubernetes.Interfa
 		config:          config,
 		userinfo:        userinfo,
 		authenticator:   authentication.NewAuthenticator(config),
-		validatedTokens: make(map[string]time.Time),
 	}
 
 	s.buildRoutes()
@@ -153,6 +150,9 @@ func (s *Server) validateToken(bearerToken string, logger *logrus.Entry, w http.
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	oauth2Config.Client(ctx, &oauth2.Token{
+		
+	})
 	tokenSource := oauth2Config.TokenSource(ctx, &oauth2.Token{
 		AccessToken: bearerToken,
 		TokenType:   "Bearer",
