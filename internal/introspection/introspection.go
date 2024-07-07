@@ -102,7 +102,7 @@ func (i *Introspection) Validate(bearerToken string) bool {
 	// Check if the token is active
 	active, ok := result["active"].(bool)
 	if !ok || !active {
-		i.log.Warnf("Token %s is not active", bearerToken)
+		i.log.Warnf("Token %s is not active. Result is %s", bearerToken, body)
 		return false
 	}
 	i.log.Info("Token validated for %s. It is active", bearerToken)
