@@ -76,16 +76,7 @@ func (i *Introspection) Validate(bearerToken string) bool {
 
 	// Perform the request
 	client := &http.Client{}
-	// Read and log the request body
-	reqBody, err := io.ReadAll(req.Body)
-	if err != nil {
-		i.log.Errorf("Failed to read request body: %v", err)
-		return false
-	}
-	i.log.Infof("Request body: %s", string(reqBody))
 
-	// Create a new reader with the same content
-	req.Body = io.NopCloser(bytes.NewBuffer(reqBody))
 	resp, err := client.Do(req)
 	if err != nil {
 		i.log.Errorf("Failed to perform request: %v", err)
