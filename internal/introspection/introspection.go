@@ -3,6 +3,7 @@ package introspection
 import (
 	"bytes"
 	"encoding/base64"
+	"fmt"
 	"io"
 
 	"encoding/json"
@@ -58,20 +59,16 @@ func (i *Introspection) Validate(bearerToken string) bool {
 		return false
 	}
 	// Prepare the request payload
-	payload := map[string]string{"token": bearerToken}
-	payloadBytes, err := json.Marshal(payload)
-	if err != nil {
-		i.log.Errorf("Failed to marshal payload: %v", err)
-		return false
-	}
+	payload := fmt.Sprintf("token=%s", bearerToken)
 
 	// Create the request
-	req, err := http.NewRequest("POST", i.introspectionEndpoint, bytes.NewBuffer(payloadBytes))
+	req, err := http.NewRequest("POST", i.introspectionEndpoint, bytes.NewBuffer([]byte(payload)))
 	if err != nil {
 		i.log.Errorf("Failed to create request: %v", err)
 		return false
 	}
-	req.Header.Set("Content-Type", "application/json")
+	// introspect do not expect json payload. Don't do below
+	// req.Header.Set("Content-Type", "application/json")
 
 	// Set Basic Auth header
 	basicAuthToken := base64.StdEncoding.EncodeToString([]byte(i.config.ClientID + ":" + i.config.ClientSecret))
