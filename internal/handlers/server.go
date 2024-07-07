@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -147,32 +146,13 @@ func (s *Server) validateToken(bearerToken string, logger *logrus.Entry, w http.
 		w.WriteHeader(200)
 		return
 	}
-	oauth2Config := &oauth2.Config{
-		ClientID:     s.config.ClientID,
-		ClientSecret: s.config.ClientSecret,
-		Endpoint:     s.config.OIDCProvider.Endpoint(),
+	if s.introspection.Validate(bearerToken) {
+		logger.Infof("Bearer token successfully verified for %s", bearerToken)
+		s.validatedTokens[bearerToken] = time.Now()
+		w.WriteHeader(http.StatusOK)
+	} else {
+		w.WriteHeader(http.StatusUnauthorized)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	oauth2Config.Client(ctx, &oauth2.Token{})
-	tokenSource := oauth2Config.TokenSource(ctx, &oauth2.Token{
-		AccessToken: bearerToken,
-		TokenType:   "Bearer",
-	})
-
-	_, err := tokenSource.Token()
-	if err != nil {
-		logger.Errorf("Failed to verify bearer token: %v", err)
-		http.Error(w, "Unauthorized: Invalid bearer token", http.StatusUnauthorized)
-		w.WriteHeader(401)
-		return
-	}
-
-	logger.Infof("Bearer token successfully verified for %s", bearerToken)
-	s.validatedTokens[bearerToken] = time.Now()
-	w.WriteHeader(200)
 }
 
 // AllowHandler handles the request as implicite "allow", returining HTTP 200 response to the Traefik
