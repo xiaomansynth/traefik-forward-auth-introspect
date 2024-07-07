@@ -38,6 +38,7 @@ type Config struct {
 	ClientSecret            string               `long:"client-secret" env:"CLIENT_SECRET" description:"Client Secret" json:"-"`
 	Scope                   string               `long:"scope" env:"SCOPE" description:"Define scope"`
 	AuthHost                string               `long:"auth-host" env:"AUTH_HOST" description:"Single host to use when returning from 3rd party auth"`
+	IntrospectionURI        string               `long:"introspection-uri" env:"INTROSPECTION_URI" default:"" description:"Manual override of introspection URI if set"`
 	Config                  func(s string) error `long:"config" env:"CONFIG" description:"Path to config file" json:"-"`
 	CookieDomains           []util.CookieDomain  `long:"cookie-domain" env:"COOKIE_DOMAIN" description:"Domain to set auth cookie on, can be set multiple times"`
 	InsecureCookie          bool                 `long:"insecure-cookie" env:"INSECURE_COOKIE" description:"Use insecure cookies"`

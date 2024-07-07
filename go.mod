@@ -13,6 +13,8 @@ require (
 	github.com/go-acme/lego v2.5.0+incompatible // indirect
 	github.com/go-kit/kit v0.8.0 // indirect
 	github.com/gogo/protobuf v1.3.1 // indirect
+	github.com/google/go-github v17.0.0+incompatible // indirect
+	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/googleapis/gnostic v0.3.1 // indirect
 	github.com/gorilla/context v1.1.1 // indirect
 	github.com/gorilla/securecookie v1.1.1
@@ -22,6 +24,7 @@ require (
 	github.com/json-iterator/go v1.1.8 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/miekg/dns v1.1.8 // indirect
+	github.com/ogier/pflag v0.0.1 // indirect
 	github.com/onsi/ginkgo v1.10.1 // indirect
 	github.com/onsi/gomega v1.7.0 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect

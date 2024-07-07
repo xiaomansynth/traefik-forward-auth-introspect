@@ -12,6 +12,7 @@ import (
 	"github.com/mesosphere/traefik-forward-auth/internal/api/storage/v1alpha1"
 	"github.com/mesosphere/traefik-forward-auth/internal/authentication"
 	"github.com/mesosphere/traefik-forward-auth/internal/configuration"
+	"github.com/mesosphere/traefik-forward-auth/internal/introspection"
 
 	"github.com/containous/traefik/pkg/rules"
 	"github.com/coreos/go-oidc"
@@ -38,6 +39,9 @@ type Server struct {
 	log           logrus.FieldLogger
 	config        *configuration.Config
 	authenticator *authentication.Authenticator
+	introspection *introspection.Introspection
+	// token and its last validated time
+	validatedTokens map[string]time.Time
 }
 
 // NewServer creates a new forwardauth server
@@ -47,6 +51,8 @@ func NewServer(userinfo v1alpha1.UserInfoInterface, clientset kubernetes.Interfa
 		config:          config,
 		userinfo:        userinfo,
 		authenticator:   authentication.NewAuthenticator(config),
+		introspection:   introspection.NewIntrospection(config),
+		validatedTokens: make(map[string]time.Time),
 	}
 
 	s.buildRoutes()
@@ -150,9 +156,7 @@ func (s *Server) validateToken(bearerToken string, logger *logrus.Entry, w http.
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	oauth2Config.Client(ctx, &oauth2.Token{
-		
-	})
+	oauth2Config.Client(ctx, &oauth2.Token{})
 	tokenSource := oauth2Config.TokenSource(ctx, &oauth2.Token{
 		AccessToken: bearerToken,
 		TokenType:   "Bearer",
